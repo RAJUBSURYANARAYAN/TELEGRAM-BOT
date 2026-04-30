@@ -6,7 +6,7 @@ from telegram.request import HTTPXRequest
 from database import get_and_delete_code
 
 # Replace with your actual BotFather token
-TOKEN = "7692916445:AAF0z9dsNXEVhP5V5e1l3pQqIeP_MqW5eMs"
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
 TEMP_UPLOAD_FOLDER = "temp_uploads"
 UPLOAD_FOLDER = "uploads"
 
