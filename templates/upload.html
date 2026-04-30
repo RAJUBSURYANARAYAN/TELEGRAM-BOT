@@ -1,13 +1,238 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Upload File</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DropBox Courier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.dragover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #fff;
+            transform: scale(1.02);
+        }
+
+        /* Custom scrollbar for file list */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+    </style>
 </head>
-<body>
-    <h2>Upload a File</h2>
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" required>
-        <button type="submit">Upload</button>
-    </form>
+<body class="p-4 sm:p-8">
+
+    <div class="glass-card rounded-3xl w-full max-w-lg p-8 transform transition-all duration-500 hover:shadow-2xl">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold tracking-tight mb-2">File Courier</h1>
+            <p class="text-blue-100/80 text-sm">Securely transfer files to your mobile.</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div id="upload-section">
+            <form id="upload-form" class="space-y-6">
+                <div id="drop-zone" class="drop-zone rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer">
+                    <svg class="w-12 h-12 mb-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="text-lg font-semibold">Drop files here</p>
+                    <p class="text-sm text-white/60 mt-1">or click to browse</p>
+                    <input type="file" id="file-input" name="files[]" multiple class="hidden" required>
+                </div>
+
+                <div id="selected-files" class="text-sm font-medium text-blue-100 max-h-32 overflow-y-auto hidden space-y-2">
+                    <!-- Files will be listed here -->
+                </div>
+
+                <button type="submit" id="submit-btn" class="w-full py-3.5 px-4 bg-white/20 hover:bg-white/30 text-white rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Upload & Get Code
+                </button>
+            </form>
+        </div>
+
+        <!-- Success Section (Hidden by default) -->
+        <div id="success-section" class="hidden text-center space-y-6 slide-up">
+            <div class="w-16 h-16 bg-green-400/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-400/40">
+                <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold">Upload Complete!</h2>
+            <p class="text-blue-100/90 text-sm mb-4">Your files are encrypted and waiting. Send this code to the Telegram bot to claim them:</p>
+            
+            <div class="bg-black/30 w-full p-6 rounded-2xl border border-white/10 relative group cursor-pointer" id="copy-container">
+                <p class="text-5xl font-mono tracking-[0.2em] text-white" id="claim-code">------</p>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/60 rounded-2xl transition-opacity">
+                    <span class="font-semibold" id="copy-text">Click to copy</span>
+                </div>
+            </div>
+            
+            <p class="text-xs text-white/50">Code valid for immediate claim.</p>
+
+            <button onclick="resetForm()" class="mt-4 text-sm text-white/70 hover:text-white underline underline-offset-4 transition-colors">
+                Upload more files
+            </button>
+        </div>
+
+        <!-- Loader overlay -->
+        <div id="loader" class="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-3xl hidden flex flex-col items-center justify-center">
+            <svg class="animate-spin h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="font-medium animate-pulse">Encrypting & Uploading...</p>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const form = document.getElementById('upload-form');
+        const selectedFilesContainer = document.getElementById('selected-files');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        const uploadSection = document.getElementById('upload-section');
+        const successSection = document.getElementById('success-section');
+        const loader = document.getElementById('loader');
+        const claimCodeEl = document.getElementById('claim-code');
+        const copyContainer = document.getElementById('copy-container');
+        const copyText = document.getElementById('copy-text');
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight drop zone
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        // Handle dropped files
+        dropZone.addEventListener('drop', handleDrop, false);
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', updateFileList);
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            if(files.length) {
+                fileInput.files = files;
+                updateFileList();
+            }
+        }
+
+        function updateFileList() {
+            const files = fileInput.files;
+            if (files.length > 0) {
+                selectedFilesContainer.innerHTML = Array.from(files).map(f => 
+                    `<div class="bg-black/20 px-3 py-2 rounded border border-white/10 flex items-center justify-between">
+                        <span class="truncate">${f.name}</span>
+                        <span class="text-xs text-white/50 ml-2">${(f.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>`
+                ).join('');
+                selectedFilesContainer.classList.remove('hidden');
+            } else {
+                selectedFilesContainer.classList.add('hidden');
+                selectedFilesContainer.innerHTML = '';
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!fileInput.files.length) return;
+
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+            
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSuccess(data.code);
+                } else {
+                    alert('Error: ' + (data.error || 'Upload failed'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred during upload.');
+            } finally {
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+            }
+        });
+
+        function showSuccess(code) {
+            uploadSection.classList.add('hidden');
+            successSection.classList.remove('hidden');
+            claimCodeEl.textContent = code;
+        }
+
+        function resetForm() {
+            form.reset();
+            updateFileList();
+            successSection.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+        }
+
+        copyContainer.addEventListener('click', () => {
+            navigator.clipboard.writeText(claimCodeEl.textContent).then(() => {
+                const orig = copyText.textContent;
+                copyText.textContent = "Copied!";
+                copyText.classList.add('text-green-400');
+                setTimeout(() => {
+                    copyText.textContent = orig;
+                    copyText.classList.remove('text-green-400');
+                }, 2000);
+            });
+        });
+    </script>
 </body>
 </html>
